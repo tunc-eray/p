@@ -15,8 +15,11 @@ Tek dosyalık 3D blöf kart oyunu. Tarayıcıda oyna: https://tunc-eray.github.i
   (3) oyuncunun **kendi gözleri kapanır**, (4) **kolyenin gözü açılır**, kamera kolyeye yaklaşır ve talimat o gözden
   okunur (iris + göz kapakları perdesi, `#eyev`). "Çık" deyince göz kapanır, kendi gözümüzden görmeye başlarız,
   talimat yerine döner ve kolye **yavaşça** uçmayı bırakıp yerine süzülür.
-- **Botların gözleri** artık aniden kırpılmıyor: yumuşak kapanıp (gözbebekleri aşağı bakarak) tekrar açılıyor; talimat
-  anlatırken kolyelerinin gözü açılıp parlıyor. Kolyeler büyütüldü, altın çerçeve/parıltı eklendi.
+- **Asa**: artık budaklı/kırık ahşap sap (4 boğum + boğum yumruları), **deri sargılı kavrama**, gerçek **kafatası**
+  (göz çukurları, kırmızı parlayan gözbebekleri, burun boşluğu, üst/alt dişler) ve kafatasından sarkan **sallanan tılsım**.
+  Aynı asa hem kurbağalarda hem birinci şahıs sahnede kullanılıyor; gözleri sıra kimdeyse kırmızı yanıp sönüyor.
+- **Karakterler**: dalgalı kenarlı şapka siperi + kıvrık uç + yamalı kumaş, siğiller, parmaklar, kemerde kese ve
+  sarkan küçük kafatası, **gerçek göz kapağı** (deri kubbe kapanıp gözü örtüyor; artık göz ezilmiyor).
 - **Kart atma**: desteden çekilen kart "Ortaya at" denince asa onu havaya kaldırır, sonra döndürerek masaya fırlatır;
   kart dizilen kartların **ilerisine** düşer (altında/arkasında kalmaz).
 
