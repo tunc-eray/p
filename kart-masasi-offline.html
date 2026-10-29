@@ -100,7 +100,7 @@ button:disabled{opacity:.4;filter:grayscale(.6);cursor:default;box-shadow:none}
 [data-dev=mob] #big{font-size:19px}
 [data-dev=mob] #chat{bottom:calc(60px + env(safe-area-inset-bottom,0px));width:calc(100vw - 16px)}
 [data-dev=mob] .lb{display:none}
-#pclose{right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:none;z-index:6;padding:4px}
+#pclose{right:16px;top:calc(52px + env(safe-area-inset-top,0px));display:none;z-index:6;padding:4px}
 #big{background:linear-gradient(#ecd9a8,#d9bd83);color:#3a2410;border:2px solid #8a6a3a;font-family:Georgia,"Palatino Linotype",serif;font-style:italic;box-shadow:inset 0 0 40px #8a5a1a66,0 8px 40px #000a}
 #big div{border-left-color:#8a5a1a}#big .pos{color:#1f6b3a}#big .neg{color:#a12a1f}#big button{background:#6b4a1a;font-style:normal}
 #onl{inset:0;margin:auto;height:fit-content;max-width:360px;display:none;text-align:center;padding:14px}
@@ -682,7 +682,9 @@ $("f").onsubmit=e=>{e.preventDefault();const t=clean($("in").value.trim()).slice
 const ray=new T.Raycaster(),mv=new T.Vector2();
 function pickNear(x,y,list,max){let best=null,bd=max;list.forEach(o=>{const v=o.position.clone();v.project(cam);const d=Math.hypot((v.x*.5+.5)*W()-x,(-v.y*.5+.5)*H()-y);if(d<bd){bd=d;best=o}});return best}
 const canDraw=()=>!!(G&&G.my&&G.cur==0&&!G.drew&&G.deck.length&&G.card==null);
-renderer.domElement.addEventListener("pointerdown",e=>{if(!G||G.over||PA.s!=="wall")return;
+renderer.domElement.addEventListener("pointerdown",e=>{if(!G||G.over)return;
+ if(PA.s==="read")return closeBig();
+ if(PA.s!=="wall")return;
  mv.set(e.clientX/W()*2-1,-(e.clientY/H())*2+1);ray.setFromCamera(mv,cam);
  if(ray.intersectObject(G.rp).length)return openBig();
  if(G.mid&&G.mid.from!=0&&midC&&(ray.intersectObject(midC).length||(DEV==="mob"&&pickNear(e.clientX,e.clientY,[midC],110))))return grab(0,G.mid.c);
