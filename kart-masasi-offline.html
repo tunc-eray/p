@@ -18,7 +18,9 @@ KURALLAR: Herkes 2 kartla başlar, kalanlar destede. Sıra gelince karta tıkla 
 KOD HARİTASI (<script> içinde, yaklaşık yukarıdan aşağı):
   sahne: renderer, scene, cam, fit, mk, sprite, faceTex/backTex/shadowTex, cardMesh, showMid/hideMid
   arayüz: R (kural metinleri), say, bubble, hud, deckUI, layout (elim), layoutRow (masadaki sıra), drawRP (parşömen dokusu)
-  cihaz + parşömen: setDev, updAct, handMesh, parchTick (bant sökme / el animasyonu), openBig/closeBig, askExit/doExit
+  cihaz + parşömen: setDev, updAct, handMesh, parchTick (bant sökme), openBig/closeBig, askExit/doExit
+  birinci şahıs: fpr (asa + boyun gözü kolyesi), fprTick (asa kalkar, kolyenin kapağı açılır), eyeView (göz görüşü perdesi = #eyev)
+  kurbağa figürü: frogTex, eyePendant (boyun gözü kolyesi), makeFrog (boyalı figür: koca şapka, kuşak, kafatası asa)
   online: clean/esc, relayApi, mqttApi (mqttOpen = kendi küçük MQTT 3.1.1 istemcisi), roomApi, onlineMenu/createRoom/joinRoom, netPeers,
           startOnline, remote, rejoin, sync (host), clientSetup/applyView/feeds (istemci)
   kurulum: buildScene, setup(n, opts: dağıtım, hain, ittifak, talimatlar)
@@ -32,7 +34,7 @@ TASARIM KARARLARI (değiştirmeden önce düşün):
   Sıra PAS'a kadar değişmez. Kart çekmek/almak/ortaya atmak zorunlu değil. Talimatlar gizli; botlar başta talimatlarını doğru ya da yalan açıklar.
   Online: host yetkili (oyun mantığı oda sahibinin tarayıcısında). Taşıma katmanı: join(oda) -> {presence(patch), peers(), onPeers(fn), leave()}.
   presence anahtarları [A-Za-z_][A-Za-z0-9_-]* olmalı, oyuncuya özel veriler DİZİ içinde, metinler clean() ile temiz. Peer kimliği p.peer===NET.me ile karşılaştırılır.
-  Deste yüzü aşağı kart destesidir; kart çekilince üstteki kartın alt ucu hafifçe kıvrılır (kart belli olmaz). Ortaya atılan kart havada durmaz: masanın önüne, dizilen kartlardan ayrı bir yere düz konur (parlayan çerçeve = kapılabilir). Talimat parşömeni tahta duvara bantlıdır; tıklayınca eller bantı sökerek getirir (havada durmaz). Çıkış her zaman onay ister.
+  Deste yüzü aşağı kart destesidir; kart çekilince üstteki kartın alt ucu hafifçe kıvrılır (kart belli olmaz). Ortaya atılan kart havada durmaz: asa kartı kaldırır, dizilen kartların İLERİSİNE (altına/arkasına değil) düz konur (parlayan çerçeve = kapılabilir). Talimat parşömeni tahta duvara bantlıdır; tıklayınca asa parşömeni kaldırıp getirir, oyuncunun gözleri kapanır, boynundaki kolyenin gözü açılır ve talimat o gözün gördüğü gibi okunur (#eyev perdesi). Çıkış her zaman onay ister.
 BİLİNEN EKSİKLER: 3D yerleşim ve dokunmatik kontroller gerçek cihazlarda az denendi. presence herkese açıktır (başkasının eli teknik olarak okunabilir).
 Bot sohbeti hazır cümlelerden. Ses yok. Tam proje (sunucu, testler): TUM-KODLAR.txt.
 -->
@@ -98,7 +100,7 @@ button:disabled{opacity:.4;filter:grayscale(.6);cursor:default;box-shadow:none}
 [data-dev=mob] #big{font-size:19px}
 [data-dev=mob] #chat{bottom:calc(60px + env(safe-area-inset-bottom,0px));width:calc(100vw - 16px)}
 [data-dev=mob] .lb{display:none}
-#pclose{left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));display:none;z-index:6;padding:4px}
+#pclose{right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:none;z-index:6;padding:4px}
 #big{background:linear-gradient(#ecd9a8,#d9bd83);color:#3a2410;border:2px solid #8a6a3a;font-family:Georgia,"Palatino Linotype",serif;font-style:italic;box-shadow:inset 0 0 40px #8a5a1a66,0 8px 40px #000a}
 #big div{border-left-color:#8a5a1a}#big .pos{color:#1f6b3a}#big .neg{color:#a12a1f}#big button{background:#6b4a1a;font-style:normal}
 #onl{inset:0;margin:auto;height:fit-content;max-width:360px;display:none;text-align:center;padding:14px}
@@ -111,6 +113,15 @@ button:disabled{opacity:.4;filter:grayscale(.6);cursor:default;box-shadow:none}
 .hw-d{font-size:12px;opacity:.7;text-align:center;margin-top:10px}
 select{font:inherit;padding:6px;border-radius:8px;border:1px solid #5b4a76;background:#120c1a;color:var(--fg)}
 .pos{color:#7be39a}.neg{color:#ff8a7c}
+/* boyun gözü: talimat okunurken gözün gördüğü görüntü (iris + kapaklar) */
+#eyev{position:fixed;inset:0;pointer-events:none;z-index:4;opacity:0;transition:opacity .4s;overflow:hidden}
+#eyev.on{opacity:1}
+#eyev .iris{position:absolute;inset:-2%;background:radial-gradient(ellipse 68% 56% at 50% 46%,#ffdf9e00 50%,#1a0f2acc 78%,#0b0614f5 100%)}
+#eyev .tint{position:absolute;inset:0;background:radial-gradient(ellipse 58% 48% at 50% 46%,#ffcf7a12,#7a4a0a22 68%,#00000066)}
+#eyev .lid{position:absolute;left:-12%;width:124%;height:32%;background:#0d0716;transition:transform .3s cubic-bezier(.4,0,.2,1)}
+#eyev .lid.t{top:0;border-radius:0 0 50% 50%/0 0 60% 60%;transform:translateY(-82%)}
+#eyev .lid.b{bottom:0;border-radius:50% 50% 0 0/60% 60% 0 0;transform:translateY(82%)}
+#eyev.blink .lid{transform:translateY(0)}
 </style>
 </head>
 <body class="dev">
@@ -119,6 +130,7 @@ select{font:inherit;padding:6px;border-radius:8px;border:1px solid #5b4a76;backg
 <div id="bar" class="p"><button class="danger" title="Çıkış (Esc)" onclick="askExit()">🚪</button><button class="alt" title="Talimatım (T)" onclick="openBig()">📜</button><button class="alt" title="Nasıl oynanır? (H)" onclick="showHow()">❓</button><button id="cb" class="alt" title="Sohbet (C)" onclick="toggleChat()">💬</button></div>
 <div id="act" class="p"><button id="a_pass" class="pri" onclick="doAct(null)">⏭ PAS<span class="kb">Boşluk</span></button><button id="a_draw" onclick="drawBtn()">🎴 Kart çek<span class="kb">D</span></button><button id="a_grab" class="ok" onclick="grabBtn()">✋ Kap!</button></div>
 <div id="chat" class="p"><div id="log"></div><form id="f"><input id="in" placeholder="Masaya bir şey söyle…" autocomplete="off"><button>Gönder</button></form></div>
+<div id="eyev" aria-hidden="true"><div class="iris"></div><div class="tint"></div><div class="lid t"></div><div class="lid b"></div></div>
 <div id="big" class="p"></div>
 <div id="xit" class="p"><b style="font-size:17px">🚪 Menüye dönülsün mü?</b><p id="xitp" style="margin:8px 0 12px"></p><button class="danger" onclick="doExit()">Evet, çık</button><button class="alt" onclick="$('xit').style.display='none'">Devam et</button></div>
 <div id="pclose" class="p"><button class="pri" onclick="closeBig()">📌 Bantla geri yapıştır</button></div>
@@ -220,13 +232,50 @@ function deckVis(){if(!G||!G.dkb)return;const n=G.deck.length,has=n>0||G.card!=n
  G.dkb.visible=n>0;G.dkb.scale.y=h;G.dkb.position.y=1.036+h/2;G.dkt.visible=has;G.dkt.position.set(DX,1.036+(n>0?h:0)+.004,DZ)}
 function flyHand(c){const cc=cards[c],b=cc.position.clone(),a=new T.Vector3(DX,1.3,DZ);cc.position.copy(a);cc.rotation.set(-Math.PI/2,0,0);cc.scale.setScalar(.9);tw.push({m:cc,a,b,ra:{x:-Math.PI/2},rx:-1.15,rz:0,sa:.9,sb:1,h:.4,t0:performance.now(),d:520})}
 let GLT=null;function glowTex(){if(!GLT){const c=document.createElement("canvas");c.width=c.height=128;const x=c.getContext("2d"),g=x.createRadialGradient(64,64,10,64,64,64);g.addColorStop(0,"rgba(255,225,130,0)");g.addColorStop(.6,"rgba(255,215,110,.55)");g.addColorStop(1,"rgba(255,200,80,0)");x.fillStyle=g;x.fillRect(0,0,128,128);GLT=new T.CanvasTexture(c)}return GLT}
-function showMid(c,up){hideMid();midC=cardMesh(up?cards[c].userData.face:backTex(),.56,.8);
+function showMid(c,up,by){hideMid();midC=cardMesh(up?cards[c].userData.face:backTex(),.56,.8);
  const sh=new T.Mesh(new T.PlaneGeometry(.7,.94),new T.MeshBasicMaterial({map:shadowTex(),transparent:true,depthWrite:false}));sh.position.set(.03,-.035,-.004);midC.add(sh);
  const gl=new T.Mesh(new T.PlaneGeometry(.82,1.06),new T.MeshBasicMaterial({map:glowTex(),transparent:true,depthWrite:false,opacity:0}));gl.position.z=-.002;midC.add(gl);midC.userData.gl=gl;
- const from=new T.Vector3(DX,1.25,DZ),to=new T.Vector3(.04,1.12,.16);   // desteden gelir, dizilen kartlardan ayrı, masanın ön ortasına düz konar
+ const from=new T.Vector3(DX,1.25,DZ),to=new T.Vector3(.04,1.1,-1.42);   // dizilen kartların İLERİSİNE konar (altında/arkasında kalmaz)
  midC.rotation.set(-Math.PI/2,0,.06);midC.position.copy(from);midC.scale.setScalar(.8);
- tw.push({m:midC,a:from.clone(),b:to,ra:{x:-Math.PI/2},rx:-Math.PI/2,rz:.06,sa:.8,sb:1,h:.25,t0:performance.now(),d:450})}
+ if(by===0){                                                            // kendi atışımız: asa kartı yukarı kaldırır, sonra ortaya fırlatır
+  const F=fpr();F.fling=performance.now();
+  const hold=cam.localToWorld(new T.Vector3(.2,-.14,-1));
+  tw.push({m:midC,a:from.clone(),b:hold,ra:{x:-Math.PI/2,y:0,z:.06},rx:-1.28,ry:.5,rz:.3,sa:.8,sb:.46,h:.5,t0:performance.now(),d:470});
+  later(()=>{tw.push({m:midC,a:hold,b:to,ra:{x:-1.28,y:.5,z:.3},rx:-Math.PI/2,ry:Math.PI*2.2,rz:.06,sa:.46,sb:1,h:.62,t0:performance.now(),d:640})},490);
+ }else tw.push({m:midC,a:from.clone(),b:to,ra:{x:-Math.PI/2},rx:-Math.PI/2,rz:.06,sa:.8,sb:1,h:.25,t0:performance.now(),d:450})}
 function hideMid(){if(midC){scene.remove(midC);midC=null}}
+// ---------- birinci şahıs: asa + boyun gözü kolyesi (talimat okuma sahnesi) ----------
+let FPR=null;
+function fpr(){if(FPR)return FPR;scene.add(cam);const g=new T.Group();cam.add(g);
+ const wood=new T.MeshStandardMaterial({color:0x3a2415,roughness:.95}),bone=new T.MeshStandardMaterial({color:0xe6dfc8,roughness:.55}),
+  w=new T.Group();
+ const rod=new T.Mesh(new T.CylinderGeometry(.022,.03,1.15,10),wood);rod.position.y=.58;w.add(rod);
+ const knob=new T.Mesh(new T.SphereGeometry(.055,12,10),wood);knob.position.y=.05;w.add(knob);
+ const sk=new T.Mesh(new T.SphereGeometry(.1,16,12),bone);sk.position.y=1.2;sk.scale.set(1,1.08,.95);w.add(sk);
+ const jaw=new T.Mesh(new T.BoxGeometry(.09,.055,.075),bone);jaw.position.set(0,1.08,.04);w.add(jaw);
+ [-1,1].forEach(s=>{const e=new T.Mesh(new T.SphereGeometry(.032,10,8),new T.MeshStandardMaterial({color:0xb01818,emissive:0x330000}));e.position.set(s*.045,1.23,.075);w.add(e)});
+ w.position.set(.46,-.95,-1.05);w.rotation.set(-.3,.2,-.5);w.scale.setScalar(.62);w.visible=false;g.add(w);
+ const a=eyePendant();a.position.set(0,-.86,-1.25);a.scale.setScalar(.62);a.visible=false;g.add(a);
+ FPR={g,w,a,amu:a.userData,up:0,read:0,fling:0};return FPR}
+function fprTick(){const F=FPR;if(!F)return;const now=performance.now();
+ if(F.fling&&now-F.fling>1100)F.fling=0;
+ const wantUp=(PA.s==="peel"||PA.s==="read")?1:0,raise=Math.max(wantUp,F.fling?1:0);
+ F.up+=(raise-F.up)*.13;F.read+=((PA.s==="read"?1:0)-F.read)*.12;
+ F.g.visible=F.up>.02;if(!F.g.visible)return;
+ const u=F.up;
+ F.w.visible=u>.03;
+ F.w.position.set(.46-.24*u,-.95+.52*u,-1.05);
+ F.w.rotation.set(-.3+.12*u,.2-.12*u,-.5-.1*u);
+ if(F.fling){const s=Math.sin(Math.min(1,(now-F.fling)/700)*Math.PI);F.w.rotation.z+=.6*s;F.w.rotation.x-=.3*s}
+ F.a.visible=F.read>.02;
+ F.a.position.set(0,-.86+.45*F.read,-1.25);
+ const lid=F.amu.lid;lid.scale.y=1.04-.99*F.read;lid.position.y=F.amu.lidY+.05*F.read;
+ F.amu.ball.material.emissive.setHex(F.read>.45?0x6a4a10:0x050400);
+ F.amu.iris.material.emissive.setHex(F.read>.45?0x3a2200:0x000000);
+ F.a.rotation.y=.08*Math.sin(now/900)}
+function eyeView(on){const e=$("eyev");if(!e)return;clearTimeout(e.t);
+ if(on){e.classList.add("on");e.classList.add("blink");e.t=setTimeout(()=>e.classList.remove("blink"),160)}
+ else{e.classList.add("blink");e.t=setTimeout(()=>{e.classList.remove("on");e.classList.remove("blink")},320)}}
 // ---------- metinler ----------
 const R=r=>r.t=="tri"?`${r.items.map(IN).join(" + ")} kartlarının üçü de ortada olursa <b class="pos">herkes +10</b>, olmazsa <b class="neg">herkes −3</b>.`
 :r.t=="tr"?`🗡️ <b>Sen hainsin!</b> ${r.items.map(IN).join(" + ")} kartlarının üçü de ortada olursa <b class="neg">sen −15</b>, olmazsa <b class="pos">+10</b>.`
@@ -242,12 +291,12 @@ function say(t,sys,who,p){const d=document.createElement("div"),pl=String(t).rep
  if(sys&&G){G.last=pl;hud()}if(!sys&&!$("chat").classList.contains("open")){unread++;ub()}}
 function ub(){$("cb").innerHTML='💬'+(unread?`<i class="bd">${unread}</i>`:"")}
 function toggleChat(){$("chat").classList.toggle("open");unread=0;ub()}
-function bubble(p,t,ms=6000,quiet){const b=tags[p].firstChild;b.textContent=t;b.style.display="block";clearTimeout(b.t);b.t=setTimeout(()=>b.style.display="none",ms);if(!quiet)say(t.replace(/\n/g,"<br>"),0,NM[p],p)}
+function bubble(p,t,ms=6000,quiet){const b=tags[p].firstChild;b.textContent=t;b.style.display="block";clearTimeout(b.t);b.t=setTimeout(()=>b.style.display="none",ms);if(G&&G.frogs&&G.frogs[p])G.frogs[p].userData.read=performance.now()+Math.min(ms,9000);if(!quiet)say(t.replace(/\n/g,"<br>"),0,NM[p],p)}
 function hud(){const st=G.over?"<b>Oyun bitti</b>":G.intro?"Herkes talimatını açıklıyor…":G.card!=null&&G.cur==0?"<b>Kart çektin:</b> al, ortaya at ya da geri koy":G.my?(DEV==="mob"?"<b>Sıra sende!</b> Karta dokun, bitince altın PAS’a":"<b>Sıra sende!</b> Karta tıkla, bitince PAS (Boşluk)"):"Sıra: <b>"+NM[G.cur]+"</b>";
  $("top").innerHTML=`<div class="st">${st}</div><div class="ct">🃏 Ortada ${G.pot.length}/3 · 🎴 Deste ${G.deck.length}</div><div class="ev">${G.last||""}</div>`;qSync();updAct()}
 const readHtml=()=>DEV==="mob"||cam.aspect<1.35;
-function openBig(){if(!G||PA.s!=="wall")return;PA.s="peel";PA.t0=performance.now()}
-function closeBig(){if(PA.s!=="read")return;$("big").style.display="none";$("pclose").style.display="none";PA.s="back";PA.t0=performance.now()}
+function openBig(){if(!G||PA.s!=="wall")return;PA.s="peel";PA.t0=performance.now();fpr()}
+function closeBig(){if(PA.s!=="read")return;$("big").style.display="none";$("pclose").style.display="none";PA.s="back";PA.t0=performance.now();eyeView(0)}
 function showBig(){if(readHtml()){$("big").innerHTML=`<b style="font-size:23px">✦ Gizli Talimatlar ✦</b>${G.rules[0].map(r=>`<div>${R(r)}</div>`).join("")}${held(0).some(i=>G.items[i].sab)?`<div>${SABN}</div>`:""}<p style="text-align:center"><button class="pri" onclick="closeBig()">📌 Bantla geri yapıştır</button></p>`;$("big").style.display="block"}else $("pclose").style.display="block"}
 function wrap(x,t,w){const out=[];let line="";for(const wd of t.split(" ")){const s=line?line+" "+wd:wd;if(x.measureText(s).width>w&&line){out.push(line);line=wd}else line=s}out.push(line);return out}
 function drawRP(){const c=rpC,x=c.getContext("2d"),W2=c.width,H2=c.height,J=k=>((Math.sin(k*12.9898)*43758.5453)%1+1)%1*16-8;x.clearRect(0,0,W2,H2);
@@ -258,7 +307,7 @@ function drawRP(){const c=rpC,x=c.getContext("2d"),W2=c.width,H2=c.height,J=k=>(
  for(let k=0;k<420;k++){x.fillStyle="rgba(90,60,20,"+(.03+.05*((k*37)%10)/10)+")";x.beginPath();x.arc((k*977)%W2,(k*613)%H2,3+(k*7)%24,0,7);x.fill()}
  x.restore();x.textBaseline="alphabetic";x.fillStyle="#4a2c10";x.font="italic bold 58px Georgia,'Palatino Linotype',serif";x.fillText("✦ Gizli Talimatlar ✦",120,112);
  x.font="italic 40px Georgia,'Palatino Linotype',serif";const L=G.rules[0].map(r=>"• "+plain(r));if(held(0).some(i=>G.items[i].sab))L.push("• "+SABN);let y=184,full=1;
- for(const t of L){for(const ln of wrap(x,t,W2-300)){if(y>H2-96){full=0;break}let px=120;ln.split(/([+−]\d+)/).forEach(sg=>{x.fillStyle=/^[+−]\d/.test(sg)?(sg[0]=="+"?"#1f6b3a":"#a12a1f"):"#3a2410";x.fillText(sg,px,y);px+=x.measureText(sg).width});y+=50}if(!full)break;y+=8}
+ for(const t of L){for(const ln of wrap(x,t,W2-440)){if(y>H2-96){full=0;break}let px=120;ln.split(/([+−]\d+)/).forEach(sg=>{x.fillStyle=/^[+−]\d/.test(sg)?(sg[0]=="+"?"#1f6b3a":"#a12a1f"):"#3a2410";x.fillText(sg,px,y);px+=x.measureText(sg).width});y+=50}if(!full)break;y+=8}
  x.fillStyle="#6b4a1a";x.font="italic 30px Georgia,serif";x.fillText(full?"büyütmek için tıkla":"… devamı için tıkla",120,H2-52);
  x.fillStyle="#9b1c1c";x.beginPath();x.arc(W2-170,H2-130,54,0,7);x.fill();x.fillStyle="#e07a7a";x.font="bold 62px serif";x.textAlign="center";x.fillText("✦",W2-170,H2-108);x.textAlign="left";rpT.needsUpdate=true}
 function deckUI(){qSync();const d=$("deck"),sb="<br><small>Ortaya konursa üçlü bonusu iptal eder.</small>";
@@ -286,16 +335,16 @@ function handMesh(){const g=new T.Group(),sk=new T.MeshStandardMaterial({color:0
  const th=new T.Mesh(new T.BoxGeometry(.03,.09,.026),sk);th.position.set(.085,.02,0);th.rotation.z=-.7;g.add(th);
  const arm=new T.Mesh(new T.CylinderGeometry(.045,.055,1.1,10),sl);arm.rotation.x=Math.PI/2;arm.position.z=.58;g.add(arm);return g}
 function readPose(){const d=new T.Vector3();cam.getWorldDirection(d);const D=1.6,vh=2*D*Math.tan(cam.fov*Math.PI/360),vw=vh*cam.aspect;
- return {p:cam.position.clone().addScaledVector(d,D),q:cam.quaternion.clone(),s:Math.min(vw*.92/1.9,vh*.8/.616)}}
+ return {p:cam.position.clone().addScaledVector(d,D),q:cam.quaternion.clone(),s:Math.min(vw*.92/1.9,vh*.66/.616)}}
 function parchTick(){if(!G||!G.rp||!PA.tp.length)return;const rp=G.rp,t=performance.now()-PA.t0,cl=x=>Math.max(0,Math.min(1,x)),E=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2,R=readPose();
  const corner=k=>rp.localToWorld(new T.Vector3(k?.8:-.8,.29,.02));
  let a=0,c=0,tk=1;
- if(PA.s==="peel"){a=cl(t/600);const b=cl((t-600)/400);c=cl((t-1000)/900);tk=1-b;if(t>=1900){PA.s="read";showBig()}}
+ if(PA.s==="peel"){a=cl(t/600);const b=cl((t-600)/400);c=cl((t-1000)/900);tk=1-b;if(t>=1900){PA.s="read";showBig();eyeView(1)}}
  else if(PA.s==="read"){a=1;c=1;tk=0}
  else if(PA.s==="back"){c=1-cl(t/900);a=1-cl((t-1300)/500);tk=cl((t-900)/400);if(t>=1800)PA.s="wall"}
  const ec=E(c);rp.position.lerpVectors(PW.p,R.p,ec);rp.quaternion.copy(PW.q).slerp(R.q,ec);rp.scale.setScalar(1+(R.s-1)*ec);rp.updateMatrixWorld(true);
  PA.tp.forEach((tp,k)=>{tp.visible=c===0&&tk>0;if(!tp.visible)return;const lf=1-tk;tp.position.copy(corner(k)).add(new T.Vector3(0,.13*lf,.012+.13*lf));tp.rotation.set(-.3-1.2*lf,0,k?-.3:.3);tp.material.opacity=.85*tk;tp.scale.setScalar(.6+.4*tk)});
- PA.hd.forEach((h,k)=>{h.visible=a>0;if(!h.visible)return;const cn=corner(k),st=cn.clone().add(new T.Vector3(k?.5:-.5,-.9,2.4));h.position.lerpVectors(st,cn.add(new T.Vector3(0,0,.06)),E(a));h.lookAt(cam.position)})}
+ PA.hd.forEach(h=>{h.visible=false})}
 {let r=(typeof matchMedia!=="undefined"&&matchMedia("(pointer:coarse)").matches)?"mob":"pc";try{r=localStorage.kmdev||r}catch(e){}const b=$("dev_"+r);if(b&&b.classList)b.classList.add("rec");document.body.dataset.dev="pc"}
 // ---------- online ----------
 const clean=s=>String(s).replace(/[\u0000-\u001f\u007f-\u009f\u200b\u200c\u200e\u200f\u2028-\u202e\u2060-\u206f\ufeff]/g,"");
@@ -420,7 +469,7 @@ function applyView(hp){const s=hp.s,v=hp.v&&hp.v[NET.seat];if(!s||!v||s.v<=NET.v
  if(nw>=0&&f>=0&&f!==NET.seat&&!G.items[nw].sab){const [dx,dz]=dirv(rot(f));cards[nw].position.set(dx*2.1,1.16,dz*2.1)}
  layout();if(s.p.length!==prev)layoutRow(nw);
  G.dw=!!s.dw;DK.t=(v.cd>=0||G.dw)?1:0;
- const msig=s.m?"m"+s.m.c:"";if(msig!==NET.midSig){NET.midSig=msig;if(!msig)hideMid();else showMid(s.m.c,true)}
+ const msig=s.m?"m"+s.m.c:"";if(msig!==NET.midSig){NET.midSig=msig;if(!msig)hideMid();else showMid(s.m.c,true,rot(s.m.f))}
  deckUI();hud();feeds(s.f);if(s.o&&!NET.endShown){NET.endShown=1;showEndClient(s.e)}}
 function feeds(f){const g={};(f||[]).forEach(e=>{if(e.i<=NET.fid)return;NET.fid=e.i;const t=String(e.t).replace(/[<>]/g,"");if(e.s)return say(t,1);const vp=(e.p-NET.seat+G.n)%G.n;say(t,0,NM[vp]);(g[vp]=g[vp]||[]).push(t)});
  Object.entries(g).forEach(([vp,l])=>{if(+vp>0&&tags[+vp])bubble(+vp,l.join("\n"),8000,1)})}
@@ -434,7 +483,7 @@ function leaveOnline(){$("xit").style.display="none";teardown();if(ROOM&&ROOM.le
 // ---------- nasıl oynanır ----------
 const HOWH=`<div class="hw-t">🃏 KART MASASI</div>
 <div class="hw-s">Herkes yalan söyler. Biri hain.<br>Kime güveneceksin?</div>
-<div class="hw-l"><i>📜</i><span><b>Gizli talimatın var.</b> Duvardaki parşömene tıkla, bantı sök, oku.</span></div>
+<div class="hw-l"><i>📜</i><span><b>Gizli talimatın var.</b> Duvardaki parşömene tıkla: asa onu kaldırır, gözlerin kapanır, <b>boynundaki göz</b> açılır ve talimatı onun gördüğü gibi okursun.</span></div>
 <div class="hw-l"><i>🗣️</i><span><b>Herkes talimatını anlatır.</b> Kimi doğru söyler, kimi kandırır.</span></div>
 <div class="hw-l"><i>🃏</i><span><b>Sıran gelince</b> karta tıkla = ortaya koy. İstersen desteden kart çek. Bitince <b>PAS</b>.</span></div>
 <div class="hw-l"><i>💰</i><span><b>Ortadaki kartlar puan getirir ya da götürür.</b> Üçlü bonus herkese +10, ama <b>hain</b> onu bozmak ister!</span></div>
@@ -447,55 +496,90 @@ function closeHow(){$("how").style.display="none";if(HOWCB){const f=HOWCB;HOWCB=
 function beginGame(){const n=G.n;for(let p=1;p<n;p++)if(!G.hum[p])later(()=>bubble(p,G.rules[p].map(r=>claim(p,r)).join("\n"),8000),900+(p-1)*3800);
  later(()=>{G.intro=0;say("Herkes talimatını açıkladı. Oyun başlıyor!",1);next()},900+(n-1)*3800+1000)}
 // ---------- kurulum ----------
-function teardown(){PA.s="wall";PA.tp=[];PA.hd=[];$("big").style.display="none";$("pclose").style.display="none";GID++;if(G)G.objs.forEach(o=>scene.remove(o));tags.forEach(t=>t&&t.remove());tags=[];heads=[];cards=[];tw.length=0;hideMid();G=null}
+function teardown(){PA.s="wall";PA.tp=[];PA.hd=[];$("big").style.display="none";$("pclose").style.display="none";eyeView(0);if(FPR){FPR.up=0;FPR.read=0;FPR.fling=0;FPR.g.visible=false}GID++;if(G)G.objs.forEach(o=>scene.remove(o));tags.forEach(t=>t&&t.remove());tags=[];heads=[];cards=[];tw.length=0;hideMid();G=null}
 function start(n){document.body.className="";NM=["Sen",...BOTN];setup(n)}
 // ---- kurbağa büyücü oyuncu (fotoğraftaki boyalı figürden esinli): yeşil derili, sivri şapkalı, pelerinli, kafatası asalı, bağdaş kurmuş ----
 let FRT=null;
 function frogTex(kind){if(!FRT)FRT={};if(FRT[kind])return FRT[kind];
  const c=document.createElement("canvas");c.width=c.height=256;const x=c.getContext("2d"),sk=kind==="skin";
- x.fillStyle={skin:"#2aa07c",hat:"#6b4a2e",cloak:"#5a3a2a"}[kind];x.fillRect(0,0,256,256);
- for(let i=0;i<60;i++){x.fillStyle=sk?"rgba(20,90,70,.18)":"rgba(40,25,15,.2)";x.beginPath();x.arc((i*97)%256,(i*57)%256,6+(i*13)%22,0,7);x.fill();x.fillStyle=sk?"rgba(255,255,255,.05)":"rgba(255,255,255,.07)";x.beginPath();x.arc((i*61+30)%256,(i*83+11)%256,3+(i*7)%12,0,7);x.fill()}
- x.strokeStyle=kind==="cloak"?"rgba(240,220,190,.55)":"rgba(10,10,10,.85)";x.lineWidth=sk?3:2.4;x.lineCap="round";
+ x.fillStyle={skin:"#3ba98a",hat:"#7a5230",cloak:"#5e3a28",belt:"#6d4527"}[kind]||"#3ba98a";x.fillRect(0,0,256,256);
+ for(let i=0;i<70;i++){x.fillStyle=sk?((i%3)?"rgba(28,120,100,.17)":"rgba(18,62,55,.22)"):"rgba(38,24,14,.22)";x.beginPath();x.arc((i*97)%256,(i*57)%256,5+(i*13)%20,0,7);x.fill();
+  x.fillStyle=sk?"rgba(215,255,238,.10)":"rgba(255,250,240,.10)";x.beginPath();x.arc((i*61+30)%256,(i*83+11)%256,3+(i*7)%11,0,7);x.fill()}
+ x.strokeStyle=kind==="cloak"?"rgba(245,235,215,.6)":kind==="belt"?"rgba(245,238,215,.8)":"rgba(12,16,15,.85)";x.lineWidth=sk?3.4:2.6;x.lineCap="round";
  for(let i=0;i<14;i++){const cx=(i*73)%240+8,cy=(i*131)%240+8,r=6+(i*5)%14;x.beginPath();if(i%3===0)x.arc(cx,cy,r,.4,4.6);else if(i%3===1){x.moveTo(cx-r,cy);x.quadraticCurveTo(cx,cy-r*1.6,cx+r,cy+r*.4)}else{x.moveTo(cx,cy-r);x.lineTo(cx,cy+r);x.moveTo(cx-r*.7,cy);x.lineTo(cx+r*.7,cy)}x.stroke()}
- x.fillStyle="rgba(245,240,230,.75)";for(let i=0;i<(sk?10:22);i++)x.fillRect((i*89+13)%250,(i*47+7)%250,2+(i%4),2+((i*3)%3));
- if(kind==="hat"){x.fillStyle="rgba(190,40,50,.8)";for(let i=0;i<6;i++){x.beginPath();x.arc((i*53+20)%240,(i*91+40)%240,4+(i%3),0,7);x.fill()}}
+ x.fillStyle="rgba(246,240,228,.8)";for(let i=0;i<(sk?10:26);i++)x.fillRect((i*89+13)%250,(i*47+7)%250,2+(i%4),2+((i*3)%3));
+ if(kind==="hat"){["rgba(196,44,52,.85)","rgba(236,236,232,.92)","rgba(126,74,36,.9)"].forEach((cc,k)=>{x.fillStyle=cc;for(let i=0;i<5;i++){x.beginPath();x.arc(40+((i*61+k*37)%190),30+((i*97+k*53)%200),5+(i%4)*2,0,7);x.fill()}})}
  return FRT[kind]=new T.CanvasTexture(c)}
+// ---- kolye: boyunda duran göz. Talimat okunurken kapağı açılır, göz parlar (oyuncu ve botlar aynı parçayı kullanır) ----
+function eyePendant(){const g=new T.Group();
+ const gold=new T.MeshStandardMaterial({color:0xd9a92a,roughness:.38,metalness:.35}),
+  cordM=new T.MeshStandardMaterial({color:0x241408,roughness:1}),
+  ballM=new T.MeshStandardMaterial({color:0xfff0c4,roughness:.22,emissive:0x000000}),
+  irisM=new T.MeshStandardMaterial({color:0xc07a12,roughness:.3,emissive:0x000000});
+ const drop=new T.Mesh(new T.SphereGeometry(.075,18,14),gold);drop.position.set(0,-.1,-.03);drop.scale.set(1,1.35,.72);g.add(drop);
+ const ball=new T.Mesh(new T.SphereGeometry(.042,16,12),ballM);ball.position.set(0,-.1,.04);ball.scale.set(1,.94,.62);g.add(ball);
+ const iris=new T.Mesh(new T.SphereGeometry(.03,14,10),irisM);iris.position.set(0,-.1,.066);iris.scale.set(1,.92,.45);g.add(iris);
+ const pup=new T.Mesh(new T.BoxGeometry(.007,.05,.012),new T.MeshBasicMaterial({color:0x080506}));pup.position.set(0,-.1,.088);g.add(pup);
+ const lid=new T.Mesh(new T.SphereGeometry(.047,16,12),gold);lid.position.set(0,-.1,.04);lid.scale.set(1.04,.99,.7);g.add(lid);
+ const hoop=new T.Mesh(new T.TorusGeometry(.026,.008,6,14),gold);hoop.position.set(0,.01,0);g.add(hoop);
+ [-1,1].forEach(s=>{const a=new T.Vector3(s*.15,.13,-.03),b=new T.Vector3(0,.012,0),d=new T.Vector3().subVectors(b,a),
+  m=new T.Mesh(new T.CylinderGeometry(.007,.007,d.length(),6),cordM);m.position.copy(a).addScaledVector(d,.5);m.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),d.clone().normalize());g.add(m)});
+ g.userData={lid,ball,iris,pup,lidY:-.1};return g}
 function makeFrog(p){const g=new T.Group(),V=(a,b,c)=>new T.Vector3(a,b,c),Y=.42;
- const skin=new T.MeshStandardMaterial({map:frogTex("skin"),roughness:.8}),
-  hatM=new T.MeshStandardMaterial({map:frogTex("hat"),color:[0xffffff,0xd0d8ff,0xffc8c8][p%3],roughness:1}),
-  cloakM=new T.MeshStandardMaterial({map:frogTex("cloak"),color:[0xffffff,0xc8d0ff,0xffc0c0][p%3],roughness:1,side:T.DoubleSide}),
+ const skin=new T.MeshStandardMaterial({map:frogTex("skin"),roughness:.72}),
+  hatM=new T.MeshStandardMaterial({map:frogTex("hat"),color:[0xffffff,0xd8deff,0xffcaca][p%3],roughness:.95}),
+  beltM=new T.MeshStandardMaterial({map:frogTex("belt"),color:[0xffffff,0xe6eaff,0xffe0e0][p%3],roughness:.92}),
   M=(c,o)=>new T.MeshStandardMaterial(Object.assign({color:c,roughness:.85},o||{}));
  const add3=(geo,mat,x,y,z,sx,sy,sz)=>{const m=new T.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx||1,sy||1,sz||1);g.add(m);return m};
  const limb=(a,b,r1,r2,mat)=>{const d=new T.Vector3().subVectors(b,a),m=new T.Mesh(new T.CylinderGeometry(r2,r1,d.length(),12),mat);m.position.copy(a).addScaledVector(d,.5);m.quaternion.setFromUnitVectors(V(0,1,0),d.clone().normalize());g.add(m);return m};
  // minder
- add3(new T.CylinderGeometry(.54,.48,.42,24),M(0x7a2f2f),0,.21,0);add3(new T.TorusGeometry(.52,.025,8,28).rotateX(Math.PI/2),M(0xc8922a,{metalness:.6,roughness:.4}),0,.42,0);
- // gövde ve baş
- const body=add3(new T.SphereGeometry(.5,24,18),skin,0,Y+.4,0,1,.85,.92),head=add3(new T.SphereGeometry(.42,24,18),skin,0,Y+.98,.05,1.18,.78,1);
- // bağdaş: dizler dışarıda, kaval kemikleri önde çapraz, ayaklar karşı tarafa uzanır
- [-1,1].forEach(s=>{const K=V(s*.55,Y+.15,.28),A=V(-s*.2,Y+.12+(s>0?.05:0),.74);
-  limb(V(s*.3,Y+.22,.1),K,.17,.13,skin);add3(new T.SphereGeometry(.15,12,10),skin,K.x,K.y,K.z);limb(K,A,.12,.1,skin);
-  add3(new T.SphereGeometry(.13,12,10),skin,A.x,A.y,A.z,1.1,.65,1.3);for(let t=-1;t<=1;t++)add3(new T.SphereGeometry(.04,8,6),skin,A.x-s*.15,A.y-.02,A.z+t*.06)});
- // kollar: biri dizde, diğeri asayı tutar
- limb(V(.42,Y+.66,.1),V(.55,Y+.34,.3),.1,.08,skin);add3(new T.SphereGeometry(.09,10,8),skin,.55,Y+.34,.3);
- limb(V(-.42,Y+.66,.1),V(-.72,Y+.6,.5),.1,.08,skin);add3(new T.SphereGeometry(.09,10,8),skin,-.72,Y+.6,.5);
+ add3(new T.CylinderGeometry(.6,.54,.34,26),M(0x7a2f2f),0,.17,0);add3(new T.TorusGeometry(.58,.028,8,30).rotateX(Math.PI/2),M(0xc8922a,{metalness:.6,roughness:.4}),0,.34,0);
+ // yerde yayılan yeşil etek: figürdeki erimiş/dağınık taban
+ for(let i=0;i<11;i++){const a=i/11*6.283,r=.4+.1*((i*7)%3)/2;add3(new T.SphereGeometry(.18,10,8),skin,Math.cos(a)*r,Y+.035,Math.sin(a)*r,1.25,.5,1.25)}
+ // gövde (tombul), karın ve gövdeye gömülü kafa
+ const body=add3(new T.SphereGeometry(.5,26,20),skin,0,Y+.42,0,1.04,.92,1);
+ add3(new T.SphereGeometry(.42,22,16),skin,0,Y+.28,.07,1,.9,.92);
+ const head=add3(new T.SphereGeometry(.44,26,20),skin,0,Y+.8,.03,1.14,.86,1.02);
+ // bağdaş: dizler dışarıda, kaval kemikleri önde çapraz
+ [-1,1].forEach(s=>{const K=V(s*.6,Y+.1,.24),A=V(-s*.16,Y+.09+(s>0?.04:0),.7);
+  limb(V(s*.28,Y+.16,.06),K,.18,.14,skin);add3(new T.SphereGeometry(.16,14,12),skin,K.x,K.y,K.z);
+  limb(K,A,.12,.1,skin);add3(new T.SphereGeometry(.13,12,10),skin,A.x,A.y,A.z,1.15,.62,1.35);
+  for(let t=-1;t<=1;t++)add3(new T.SphereGeometry(.04,8,6),skin,A.x-s*.15,A.y-.03,A.z+t*.07)});
+ // kollar: sağ el dizde, sol el asada
+ limb(V(.42,Y+.62,.04),V(.58,Y+.3,.28),.11,.09,skin);add3(new T.SphereGeometry(.095,10,8),skin,.58,Y+.3,.28);
+ limb(V(-.42,Y+.62,.04),V(-.74,Y+.56,.48),.11,.09,skin);add3(new T.SphereGeometry(.095,10,8),skin,-.74,Y+.56,.48);
  // asa + kafatası (gözleri sıra kimdeyse parlar)
- limb(V(-.72,Y-.02,.5),V(-.72,Y+1.82,.5),.03,.03,M(0x3b2a1a));
- const skullEye=M(0xc01818,{emissive:0x000000});add3(new T.SphereGeometry(.1,14,12),M(0xb9b4cc),-.72,Y+1.9,.5,1,1.05,.95);add3(new T.BoxGeometry(.07,.04,.06),M(0xb9b4cc),-.72,Y+1.78,.54);
- [-1,1].forEach(s=>add3(new T.SphereGeometry(.03,8,6),skullEye,-.72+s*.04,Y+1.92,.59));
- // pelerin, kırmızı boncuk, sarı çan
- add3(new T.CylinderGeometry(.4,.62,.36,24,1,true),cloakM,0,Y+.66,0);const flap=add3(new T.BoxGeometry(.55,.4,.05),cloakM,0,Y+.42,.5);flap.rotation.x=.3;
- add3(new T.SphereGeometry(.04,8,6),M(0xc01818),0,Y+.74,.5);add3(new T.CylinderGeometry(.006,.006,.28,4),M(0xe8dcc0),.02,Y+.58,.53);add3(new T.SphereGeometry(.075,12,10),M(0xf0c020),.02,Y+.4,.54,1,1.1,1);
- // gözler: turuncu, kırmızı kenarlı, dikey siyah gözbebekli
- const eyes=[-1,1].map(s=>{const e=new T.Group();e.position.set(s*.3,Y+1.26,.2);e.add(new T.Mesh(new T.SphereGeometry(.14,16,12),M(0xf5a623,{roughness:.5})));
-  const rim=new T.Mesh(new T.TorusGeometry(.14,.02,6,18),M(0xc01818));rim.position.z=.04;e.add(rim);const pu=new T.Mesh(new T.SphereGeometry(.1,10,8),M(0x050505));pu.scale.set(.16,1,.3);pu.position.z=.115;e.add(pu);g.add(e);return e});
- // ağız: kafa yüzeyine oturan siyah gülümseme
- const pts=[];for(let i=0;i<=12;i++){const t=i/6-1,x=.3*t,y=Y+.86+.06*t*t,k=1-(x/.5)**2-((y-(Y+.98))/.33)**2;pts.push(V(x,y,.05+.42*Math.sqrt(Math.max(0,k))+.004))}
- g.add(new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts),24,.013,6),M(0x050505)));
- // sivri, eğik uçlu, yıpranmış büyücü şapkası
- const brim=add3(new T.CylinderGeometry(.68,.68,.045,32),hatM,0,Y+1.47,.02,1,1,.92);brim.rotation.z=.07;brim.rotation.x=-.05;
- add3(new T.ConeGeometry(.35,.62,20),hatM,0,Y+1.8,0);const tip=add3(new T.ConeGeometry(.19,.46,14),hatM,.1,Y+2.2,-.02);tip.rotation.z=-.55;
- add3(new T.TorusGeometry(.34,.03,8,24).rotateX(Math.PI/2),M(0x8a1c24),0,Y+1.52,0);
- g.userData={body,eyes,skullEye,head,p};return g}
+ limb(V(-.74,Y-.04,.5),V(-.74,Y+1.52,.5),.031,.026,M(0x3b2a1a));
+ const skullEye=M(0xc01818,{emissive:0x000000}),boneM=M(0xd6d0ba);
+ add3(new T.SphereGeometry(.1,14,12),boneM,-.74,Y+1.6,.5,1,1.06,.96);
+ add3(new T.BoxGeometry(.075,.055,.07),boneM,-.74,Y+1.49,.535);
+ [-1,1].forEach(s=>add3(new T.SphereGeometry(.031,8,6),skullEye,-.74+s*.042,Y+1.62,.575));
+ // deri kuşak + toka
+ add3(new T.CylinderGeometry(.505,.52,.19,26,1,true),beltM,0,Y+.24,0);
+ add3(new T.BoxGeometry(.16,.13,.05),M(0x8a1c24),0,Y+.24,.5);add3(new T.TorusGeometry(.045,.011,6,12),M(0xe0b44a,{metalness:.7,roughness:.35}),0,Y+.24,.53);
+ // kolye: boyunda göz
+ const amu=eyePendant();amu.position.set(0,Y+.5,.53);amu.scale.setScalar(1.05);g.add(amu);
+ // gözler: iri, kehribar, kırmızı çerçeveli, dikey gözbebekli
+ const eyes=[-1,1].map(s=>{const e=new T.Group();e.position.set(s*.28,Y+1.0,.26);
+  e.add(new T.Mesh(new T.SphereGeometry(.16,18,14),M(0xf2b02a,{roughness:.42})));
+  const rim=new T.Mesh(new T.TorusGeometry(.158,.023,8,20),M(0xc01818));rim.position.z=.042;e.add(rim);
+  const pu=new T.Mesh(new T.SphereGeometry(.115,10,8),M(0x050505));pu.scale.set(.14,1,.3);pu.position.z=.128;e.add(pu);
+  const hl=new T.Mesh(new T.SphereGeometry(.026,8,6),new T.MeshBasicMaterial({color:0xffffff}));hl.position.set(s*-.05,.05,.15);e.add(hl);
+  g.add(e);return e});
+ // ağız: geniş, hafif eğri siyah çizgi
+ const pts=[];for(let i=0;i<=14;i++){const t=i/7-1,x=.38*t,y=Y+.7-.05*t*t,k=1-(x/.55)**2-((y-(Y+.8))/.38)**2;pts.push(V(x,y,.02+.46*Math.sqrt(Math.max(0,k))+.006))}
+ g.add(new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts),26,.016,6),M(0x060807)));
+ [-1,1].forEach(s=>add3(new T.SphereGeometry(.021,8,6),M(0x08100e),s*.07,Y+.82,.46));
+ // büyük, önü kalkık, ucu kıvrık büyücü şapkası
+ const brim=add3(new T.CylinderGeometry(.62,.6,.045,32),hatM,0,Y+1.16,.02,1,1,.95);brim.rotation.z=.08;brim.rotation.x=-.16;
+ add3(new T.CylinderGeometry(.3,.4,.46,24,1,true),hatM,0,Y+1.4,0);
+ add3(new T.ConeGeometry(.31,.42,22),hatM,0,Y+1.82,-.01);
+ const tip=add3(new T.ConeGeometry(.17,.44,16),hatM,.12,Y+2.04,-.04);tip.rotation.z=-.8;tip.rotation.x=.12;
+ add3(new T.TorusGeometry(.36,.03,8,26).rotateX(Math.PI/2),M(0x8a1c24),0,Y+1.2,0);
+ // şapkadaki boya lekeleri
+ [[.28,1.28,-.14,0xc42c34],[.06,1.38,.26,0xe8e4dc],[-.2,1.24,.22,0xc42c34],[-.24,1.44,-.14,0x7e4a24]].forEach(q=>add3(new T.SphereGeometry(.05,10,8),M(q[3],{roughness:.9}),q[0],Y+q[1],q[2],1.2,.35,1.2));
+ g.userData={body,eyes,skullEye,head,p,amu,amuEye:amu.userData};return g}
+
 function buildScene(){
  G.frogs=[];
  for(let p=1;p<G.n;p++){const [dx,dz]=dirv(p);
@@ -561,7 +645,7 @@ function take(a,p=0){if(!G||!["al","at","geri"].includes(a))return;if(G.cli){if(
 function decide(a){if(G.card==null)return;const p=G.cur,c=G.card;G.card=null;hideMid();DK.t=0;
  if(a=="al"){G.holder[c]=p;say(NM[p]+" çektiği kartı aldı.",1);if(p==0){layout();flyHand(c)}}
  else if(a=="geri"){G.deck.unshift(c);say(NM[p]+" kartı desteye geri koydu.",1)}
- else{G.mid={c,from:p};say(`${NM[p]} kartı ortaya attı: ${IN(c)}`,1);showMid(c,true);deckUI();hud();
+ else{G.mid={c,from:p};say(`${NM[p]} kartı ortaya attı: ${IN(c)}`,1);showMid(c,true,p);deckUI();hud();
   for(let b=1;b<G.n;b++)if(b!=p&&!G.hum[b]&&(val(b,c)>.7||Math.random()<.18))later(()=>grab(b,c),1200+Math.random()*3000);
   G.midT=later(()=>{const m=G.mid;if(!m)return;G.mid=null;hideMid();G.holder[m.c]=m.from;say("Kimse almadı, kart "+NM[m.from]+"’a döndü.",1);if(m.from==0)layout();cont(m.from)},6500);return}
  cont(p)}
@@ -612,8 +696,16 @@ addEventListener("keydown",e=>{if(!G||DEV!=="pc"||/INPUT|TEXTAREA/.test((e.targe
  if(k===" "){if(G.my&&PA.s==="wall"){e.preventDefault();doAct(null)}}else if(k==="d")drawBtn();else if(k==="t"){PA.s==="read"?closeBig():openBig()}else if(k==="c"){e.preventDefault();toggleChat()}else if(k==="h")showHow();else if(k==="escape"){if(PA.s==="read")closeBig();else if($("how").style.display==="block")$("how").style.display="none";else if($("xit").style.display==="block")$("xit").style.display="none";else askExit()}});
 // ---------- döngü ----------
 (function loop(){requestAnimationFrame(loop);parchTick();
- tw.slice().forEach(w=>{const k=Math.min((performance.now()-w.t0)/w.d,1),e=k*k*(3-2*k);w.m.position.lerpVectors(w.a,w.b,e);w.m.position.y+=Math.sin(k*Math.PI)*(w.h==null?.7:w.h);if(w.rx!=null){w.m.rotation.set(w.ra.x+(w.rx-w.ra.x)*e,0,w.rz*e);w.m.scale.setScalar(w.sa+(w.sb-w.sa)*e)}if(k>=1){w.m.position.copy(w.b);tw.splice(tw.indexOf(w),1)}});
- if(G&&G.frogs)G.frogs.forEach((f,p)=>{if(!f)return;const t=performance.now(),u=f.userData,ph=(t/1000+p*1.7)%4.3;u.body.scale.y=.85+Math.sin(t/700+p)*.012;u.eyes.forEach(e=>e.scale.y=ph<.14?.12:1);u.skullEye.emissive.setHex(G.cur===p&&!G.over&&!G.intro?(Math.sin(t/180)>0?0xff2a2a:0x771010):0)});
+ tw.slice().forEach(w=>{const k=Math.min((performance.now()-w.t0)/w.d,1),e=k*k*(3-2*k);w.m.position.lerpVectors(w.a,w.b,e);w.m.position.y+=Math.sin(k*Math.PI)*(w.h==null?.7:w.h);if(w.rx!=null){const az=w.ra.z||0;w.m.rotation.set(w.ra.x+(w.rx-w.ra.x)*e,(w.ra.y||0)+(w.ry||0)*e,az+((w.rz==null?0:w.rz)-az)*e);w.m.scale.setScalar(w.sa+(w.sb-w.sa)*e)}if(k>=1){w.m.position.copy(w.b);tw.splice(tw.indexOf(w),1)}});
+ fprTick();
+ if(G&&G.frogs)G.frogs.forEach((f,p)=>{if(!f)return;const t=performance.now(),u=f.userData,ph=(t/1000+p*1.7)%4.3;
+  u.body.scale.y=.9+Math.sin(t/700+p)*.014;
+  const rd=(u.read||0)>t;u.neck=(u.neck||0)+((rd?1:0)-(u.neck||0))*.13;
+  u.eyes.forEach(e=>e.scale.y=(rd||ph<.14)?.1:1);
+  if(u.amuEye){const A=u.amuEye;A.lid.scale.y=1.04-.99*u.neck;A.lid.position.y=A.lidY+.05*u.neck;
+   A.ball.material.emissive.setHex(u.neck>.45?0x7a5410:0x050400);A.iris.material.emissive.setHex(u.neck>.45?0x3a2200:0x000000)}
+  u.amu.rotation.z=Math.sin(t/1500+p*2)*.06;
+  u.skullEye.emissive.setHex(G.cur===p&&!G.over&&!G.intro?(Math.sin(t/180)>0?0xff2a2a:0x771010):0)});
  if(G&&G.pb){const t=performance.now(),pr=G.pb.userData.press?Math.max(0,1-(t-G.pb.userData.press)/220):0;G.pb.material.emissive.setHex(G.my?0x6b4a08:0);G.pb.position.y=1.08+(G.my?Math.sin(t/260)*.025:0);const S0=DEV==="mob"?1.3:1;G.pb.scale.set(S0,S0*(1-.5*pr),S0)}
  if(G&&G.dkgl){const cd=!!(G.my&&G.cur==0&&!G.drew&&G.deck.length&&G.card==null);G.dkgl.material.opacity=cd?.5+Math.sin(performance.now()/300)*.35:0;DK.c+=(DK.t-DK.c)*.18;if(Math.abs(DK.t-DK.c)<.004)DK.c=DK.t;if(DK.c!==DK.last){DK.last=DK.c;curlGeo(DK.c)}}
  if(midC&&midC.userData.gl)midC.userData.gl.material.opacity=G&&G.mid&&G.mid.from!=0?.55+Math.sin(performance.now()/200)*.35:0;{const a=pg.attributes.position.array,t=performance.now()/1000;for(let i=0;i<PN;i++){a[i*3+1]+=.004;a[i*3]+=Math.sin(t+i)*.0015;if(a[i*3+1]>2.9)a[i*3+1]=1.1}pg.attributes.position.needsUpdate=true}
