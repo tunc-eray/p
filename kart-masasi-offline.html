@@ -34,7 +34,7 @@ TASARIM KARARLARI (değiştirmeden önce düşün):
   Sıra PAS'a kadar değişmez. Kart çekmek/almak/ortaya atmak zorunlu değil. Talimatlar gizli; botlar başta talimatlarını doğru ya da yalan açıklar.
   Online: host yetkili (oyun mantığı oda sahibinin tarayıcısında). Taşıma katmanı: join(oda) -> {presence(patch), peers(), onPeers(fn), leave()}.
   presence anahtarları [A-Za-z_][A-Za-z0-9_-]* olmalı, oyuncuya özel veriler DİZİ içinde, metinler clean() ile temiz. Peer kimliği p.peer===NET.me ile karşılaştırılır.
-  Deste yüzü aşağı kart destesidir; kart çekilince üstteki kartın alt ucu hafifçe kıvrılır (kart belli olmaz). Ortaya atılan kart havada durmaz: asa kartı kaldırır, dizilen kartların İLERİSİNE (altına/arkasına değil) düz konur (parlayan çerçeve = kapılabilir). Talimat parşömeni tahta duvara bantlıdır; tıklayınca asa parşömeni kaldırıp getirir, oyuncunun gözleri kapanır, boynundaki kolyenin gözü açılır ve talimat o gözün gördüğü gibi okunur (#eyev perdesi). Çıkış her zaman onay ister.
+  Deste yüzü aşağı kart destesidir; kart çekilince üstteki kartın alt ucu hafifçe kıvrılır (kart belli olmaz). Ortaya atılan kart havada durmaz: asa kartı kaldırır, dizilen kartların İLERİSİNE (altına/arkasına değil) düz konur (parlayan çerçeve = kapılabilir). Talimat parşömeni tahta duvara bantlıdır; sıra şudur: (1) asa kalkar, (2) kolye talimata doğru uçar ama gözü KAPALIDIR, (3) oyuncunun kendi gözleri kapanır, (4) kolyenin gözü açılır, kamera kolyeye yaklaşır ve talimat o gözden okunur (#eyev perdesi). Kapatınca tersi olur: göz kapanır, kendi gözümüz açılır, talimat yerine döner, kolye yavaşça yerine süzülür. Çıkış her zaman onay ister.
 BİLİNEN EKSİKLER: 3D yerleşim ve dokunmatik kontroller gerçek cihazlarda az denendi. presence herkese açıktır (başkasının eli teknik olarak okunabilir).
 Bot sohbeti hazır cümlelerden. Ses yok. Tam proje (sunucu, testler): TUM-KODLAR.txt.
 -->
@@ -121,7 +121,7 @@ select{font:inherit;padding:6px;border-radius:8px;border:1px solid #5b4a76;backg
 #eyev .lid{position:absolute;left:-12%;width:124%;height:32%;background:#0d0716;transition:transform .3s cubic-bezier(.4,0,.2,1)}
 #eyev .lid.t{top:0;border-radius:0 0 50% 50%/0 0 60% 60%;transform:translateY(-82%)}
 #eyev .lid.b{bottom:0;border-radius:50% 50% 0 0/60% 60% 0 0;transform:translateY(82%)}
-#eyev.blink .lid{transform:translateY(0)}
+#eyev.blink .lid,#eyev.shut .lid{transform:translateY(0)}
 </style>
 </head>
 <body class="dev">
@@ -174,7 +174,8 @@ const W=()=>innerWidth,H=()=>innerHeight;
 const renderer=new T.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(W(),H());document.body.prepend(renderer.domElement);
 const scene=new T.Scene();scene.background=new T.Color(0x1a1420);
 const cam=new T.PerspectiveCamera(58,W()/H(),.1,60);
-function fit(){const a=W()/H();cam.aspect=a;cam.fov=a<1?80:56;cam.position.set(0,a<1?6.4:4.2,a<1?7.4:4.4);cam.lookAt(0,.95,a<1?.5:0);cam.updateProjectionMatrix();renderer.setSize(W(),H())}
+let CAMP=null;
+function fit(){const a=W()/H();cam.aspect=a;cam.fov=a<1?80:56;cam.position.set(0,a<1?6.4:4.2,a<1?7.4:4.4);cam.lookAt(0,.95,a<1?.5:0);cam.updateProjectionMatrix();CAMP={p:cam.position.clone(),t:new T.Vector3(0,.95,a<1?.5:0)};renderer.setSize(W(),H())}
 addEventListener("resize",fit);fit();
 scene.add(new T.AmbientLight(0xffffff,.5));const pl=new T.PointLight(0xffe9c8,.7,12);pl.position.set(0,3.2,0);scene.add(pl);
 const dl=new T.DirectionalLight(0xffffff,.42);dl.position.set(2,6,5);scene.add(dl);
@@ -256,26 +257,36 @@ function fpr(){if(FPR)return FPR;scene.add(cam);const g=new T.Group();cam.add(g)
  [-1,1].forEach(s=>{const e=new T.Mesh(new T.SphereGeometry(.032,10,8),new T.MeshStandardMaterial({color:0xb01818,emissive:0x330000}));e.position.set(s*.045,1.23,.075);w.add(e)});
  w.position.set(.46,-.95,-1.05);w.rotation.set(-.3,.2,-.5);w.scale.setScalar(.62);w.visible=false;g.add(w);
  const a=eyePendant();a.position.set(0,-.86,-1.25);a.scale.setScalar(.62);a.visible=false;g.add(a);
- FPR={g,w,a,amu:a.userData,up:0,read:0,fling:0};return FPR}
-function fprTick(){const F=FPR;if(!F)return;const now=performance.now();
+ FPR={g,w,a,amu:a.userData,up:0,read:0,fly:0,fling:0};return FPR}
+function fprTick(){const F=FPR;if(!F)return;const now=performance.now(),t=now-(PA.t0||now);
  if(F.fling&&now-F.fling>1100)F.fling=0;
- const wantUp=(PA.s==="peel"||PA.s==="read")?1:0,raise=Math.max(wantUp,F.fling?1:0);
- F.up+=(raise-F.up)*.13;F.read+=((PA.s==="read"?1:0)-F.read)*.12;
- F.g.visible=F.up>.02;if(!F.g.visible)return;
- const u=F.up;
+ const P=PA.s;
+ // 1) önce asa kalkar  2) sonra kolye talimata doğru uçar (gözü KAPALI)  3) en son göz açılır
+ const wantUp=(P==="peel"||P==="read")?1:0,raise=Math.max(wantUp,F.fling?1:0),flyT=(P==="peel"&&t>560)||P==="read";
+ F.up+=(raise-F.up)*.13;
+ F.fly=Math.max(0,Math.min(1,F.fly+(flyT?.045:-.022)));          // dönüş yavaş: "uçmayı bıraksın"
+ F.read=Math.max(0,Math.min(1,F.read+((P==="read"&&t>2050?.16:-.16))));
+ F.g.visible=F.up>.02||F.fly>.02;if(!F.g.visible){camDolly(0);return}
+ const u=F.up,f=F.fly;
  F.w.visible=u>.03;
  F.w.position.set(.46-.24*u,-.95+.52*u,-1.05);
  F.w.rotation.set(-.3+.12*u,.2-.12*u,-.5-.1*u);
  if(F.fling){const s=Math.sin(Math.min(1,(now-F.fling)/700)*Math.PI);F.w.rotation.z+=.6*s;F.w.rotation.x-=.3*s}
- F.a.visible=F.read>.02;
- F.a.position.set(0,-.86+.45*F.read,-1.25);
+ F.a.visible=f>.02;
+ F.a.position.set(0,-.86+.44*f,-1.25-.3*f);
+ F.a.scale.setScalar(.62+.36*f);
  const lid=F.amu.lid;lid.scale.y=1.04-.99*F.read;lid.position.y=F.amu.lidY+.05*F.read;
  F.amu.ball.material.emissive.setHex(F.read>.45?0x6a4a10:0x050400);
  F.amu.iris.material.emissive.setHex(F.read>.45?0x3a2200:0x000000);
- F.a.rotation.y=.08*Math.sin(now/900)}
-function eyeView(on){const e=$("eyev");if(!e)return;clearTimeout(e.t);
- if(on){e.classList.add("on");e.classList.add("blink");e.t=setTimeout(()=>e.classList.remove("blink"),160)}
- else{e.classList.add("blink");e.t=setTimeout(()=>{e.classList.remove("on");e.classList.remove("blink")},320)}}
+ F.a.rotation.y=.08*Math.sin(now/900);
+ camDolly(f*.85)}                                                // göz açılınca kamera kolyeye yaklaşır
+function camDolly(k){if(!CAMP)return;const b=CAMP.p,t=CAMP.t;cam.position.copy(b);
+ if(k>.001){const d=t.clone().sub(b).normalize();cam.position.addScaledVector(d,.95*k);cam.position.y-=.22*k}
+ cam.lookAt(t.x,t.y-.06*k,t.z);cam.updateMatrixWorld(true)}
+function eyeView(on){const e=$("eyev");if(!e)return;clearTimeout(e.t);clearTimeout(e.t2);
+ // kendi gözlerimiz kapanır -> kolyenin gözü açılır (tersine: göz kapanır -> kendi gözümüz açılır)
+ if(on){e.classList.add("on","shut");e.t=setTimeout(()=>e.classList.remove("shut"),320)}
+ else{e.classList.add("shut");e.t=setTimeout(()=>{e.classList.remove("on");e.t2=setTimeout(()=>e.classList.remove("shut"),40)},340)}}
 // ---------- metinler ----------
 const R=r=>r.t=="tri"?`${r.items.map(IN).join(" + ")} kartlarının üçü de ortada olursa <b class="pos">herkes +10</b>, olmazsa <b class="neg">herkes −3</b>.`
 :r.t=="tr"?`🗡️ <b>Sen hainsin!</b> ${r.items.map(IN).join(" + ")} kartlarının üçü de ortada olursa <b class="neg">sen −15</b>, olmazsa <b class="pos">+10</b>.`
@@ -496,7 +507,7 @@ function closeHow(){$("how").style.display="none";if(HOWCB){const f=HOWCB;HOWCB=
 function beginGame(){const n=G.n;for(let p=1;p<n;p++)if(!G.hum[p])later(()=>bubble(p,G.rules[p].map(r=>claim(p,r)).join("\n"),8000),900+(p-1)*3800);
  later(()=>{G.intro=0;say("Herkes talimatını açıkladı. Oyun başlıyor!",1);next()},900+(n-1)*3800+1000)}
 // ---------- kurulum ----------
-function teardown(){PA.s="wall";PA.tp=[];PA.hd=[];$("big").style.display="none";$("pclose").style.display="none";eyeView(0);if(FPR){FPR.up=0;FPR.read=0;FPR.fling=0;FPR.g.visible=false}GID++;if(G)G.objs.forEach(o=>scene.remove(o));tags.forEach(t=>t&&t.remove());tags=[];heads=[];cards=[];tw.length=0;hideMid();G=null}
+function teardown(){PA.s="wall";PA.tp=[];PA.hd=[];$("big").style.display="none";$("pclose").style.display="none";eyeView(0);if(FPR){FPR.up=0;FPR.read=0;FPR.fly=0;FPR.fling=0;FPR.g.visible=false;camDolly(0)}GID++;if(G)G.objs.forEach(o=>scene.remove(o));tags.forEach(t=>t&&t.remove());tags=[];heads=[];cards=[];tw.length=0;hideMid();G=null}
 function start(n){document.body.className="";NM=["Sen",...BOTN];setup(n)}
 // ---- kurbağa büyücü oyuncu (fotoğraftaki boyalı figürden esinli): yeşil derili, sivri şapkalı, pelerinli, kafatası asalı, bağdaş kurmuş ----
 let FRT=null;
@@ -512,7 +523,7 @@ function frogTex(kind){if(!FRT)FRT={};if(FRT[kind])return FRT[kind];
  return FRT[kind]=new T.CanvasTexture(c)}
 // ---- kolye: boyunda duran göz. Talimat okunurken kapağı açılır, göz parlar (oyuncu ve botlar aynı parçayı kullanır) ----
 function eyePendant(){const g=new T.Group();
- const gold=new T.MeshStandardMaterial({color:0xd9a92a,roughness:.38,metalness:.35}),
+ const gold=new T.MeshStandardMaterial({color:0xd9a92a,roughness:.3,metalness:.45,emissive:0x241800}),
   cordM=new T.MeshStandardMaterial({color:0x241408,roughness:1}),
   ballM=new T.MeshStandardMaterial({color:0xfff0c4,roughness:.22,emissive:0x000000}),
   irisM=new T.MeshStandardMaterial({color:0xc07a12,roughness:.3,emissive:0x000000});
@@ -521,6 +532,7 @@ function eyePendant(){const g=new T.Group();
  const iris=new T.Mesh(new T.SphereGeometry(.03,14,10),irisM);iris.position.set(0,-.1,.066);iris.scale.set(1,.92,.45);g.add(iris);
  const pup=new T.Mesh(new T.BoxGeometry(.007,.05,.012),new T.MeshBasicMaterial({color:0x080506}));pup.position.set(0,-.1,.088);g.add(pup);
  const lid=new T.Mesh(new T.SphereGeometry(.047,16,12),gold);lid.position.set(0,-.1,.04);lid.scale.set(1.04,.99,.7);g.add(lid);
+ const rim=new T.Mesh(new T.TorusGeometry(.05,.008,6,20),gold);rim.position.set(0,-.1,.05);g.add(rim);
  const hoop=new T.Mesh(new T.TorusGeometry(.026,.008,6,14),gold);hoop.position.set(0,.01,0);g.add(hoop);
  [-1,1].forEach(s=>{const a=new T.Vector3(s*.15,.13,-.03),b=new T.Vector3(0,.012,0),d=new T.Vector3().subVectors(b,a),
   m=new T.Mesh(new T.CylinderGeometry(.007,.007,d.length(),6),cordM);m.position.copy(a).addScaledVector(d,.5);m.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),d.clone().normalize());g.add(m)});
@@ -557,8 +569,8 @@ function makeFrog(p){const g=new T.Group(),V=(a,b,c)=>new T.Vector3(a,b,c),Y=.42
  // deri kuşak + toka
  add3(new T.CylinderGeometry(.505,.52,.19,26,1,true),beltM,0,Y+.24,0);
  add3(new T.BoxGeometry(.16,.13,.05),M(0x8a1c24),0,Y+.24,.5);add3(new T.TorusGeometry(.045,.011,6,12),M(0xe0b44a,{metalness:.7,roughness:.35}),0,Y+.24,.53);
- // kolye: boyunda göz
- const amu=eyePendant();amu.position.set(0,Y+.5,.53);amu.scale.setScalar(1.05);g.add(amu);
+ // kolye: boyunda göz (iri ve parlak dursun)
+ const amu=eyePendant();amu.position.set(0,Y+.5,.57);amu.scale.setScalar(1.32);g.add(amu);
  // gözler: iri, kehribar, kırmızı çerçeveli, dikey gözbebekli
  const eyes=[-1,1].map(s=>{const e=new T.Group();e.position.set(s*.28,Y+1.0,.26);
   e.add(new T.Mesh(new T.SphereGeometry(.16,18,14),M(0xf2b02a,{roughness:.42})));
@@ -702,8 +714,11 @@ addEventListener("keydown",e=>{if(!G||DEV!=="pc"||/INPUT|TEXTAREA/.test((e.targe
  fprTick();
  if(G&&G.frogs)G.frogs.forEach((f,p)=>{if(!f)return;const t=performance.now(),u=f.userData,ph=(t/1000+p*1.7)%4.3;
   u.body.scale.y=.9+Math.sin(t/700+p)*.014;
-  const rd=(u.read||0)>t;u.neck=(u.neck||0)+((rd?1:0)-(u.neck||0))*.13;
-  u.eyes.forEach(e=>e.scale.y=(rd||ph<.14)?.1:1);
+  const rd=(u.read||0)>t;
+  u.neck=(u.neck||0)+(((rd?1:0))-(u.neck||0))*.13;
+  const blT=(rd||ph<.14)?0:1;if(u.bl==null)u.bl=1;
+  u.bl+=(blT-u.bl)*.14;if(u.bl<.02)u.bl=0;
+  u.eyes.forEach(e=>{e.scale.y=Math.max(.07,u.bl);e.rotation.x=-.5*(1-u.bl)});
   if(u.amuEye){const A=u.amuEye;A.lid.scale.y=1.04-.99*u.neck;A.lid.position.y=A.lidY+.05*u.neck;
    A.ball.material.emissive.setHex(u.neck>.45?0x7a5410:0x050400);A.iris.material.emissive.setHex(u.neck>.45?0x3a2200:0x000000)}
   u.amu.rotation.z=Math.sin(t/1500+p*2)*.06;
